@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details 11</title>
+    <title>Order Details</title>
     <style>
         * {
             margin: 0;
@@ -1200,8 +1200,140 @@
             const success = await fetchOrderData(orderId);
             
             if (success) {
-                // Show actual content after successful fetch
-                mainContent.style.display = 'block';
+                // Restore the full page structure
+                mainContent.innerHTML = `
+                    <!-- Header -->
+                    <div class="page-header">
+                        <h1 class="page-title" id="pageTitle"></h1>
+                        <div class="header-badges">
+                            <div class="badge streaming" id="streamingBadge"></div>
+                            <div class="badge billing" id="billingBadge"></div>
+                            <div class="badge budget" id="budgetBadge"></div>
+                        </div>
+                    </div>
+
+                    <!-- First Section: All Basic Info -->
+                    <div class="info-section">
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-label">Advertiser</div>
+                                <div class="info-value" id="advertiser"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Agency</div>
+                                <div class="info-value" id="agency"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Vendor</div>
+                                <div class="info-value" id="vendor"></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 20px;"></div>
+
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="info-label">Flight Dates</div>
+                                <div class="info-value" id="flightDates"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Placement</div>
+                                <div class="info-value" id="placement"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Overall Status</div>
+                                <div class="overall-status" id="overallStatus"></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 32px;"></div>
+
+                        <!-- Team Members -->
+                        <div class="info-grid">
+                            <div class="info-item">
+                                <div class="team-role">Account Executive</div>
+                                <div class="team-name" id="aeName"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="team-role">Campaign Manager</div>
+                                <div class="team-name" id="cmName"></div>
+                            </div>
+                            <div class="info-item">
+                                <div class="team-role">Operations Lead</div>
+                                <div class="team-name" id="olName"></div>
+                            </div>
+                        </div>
+
+                        <div style="height: 32px;"></div>
+
+                        <!-- AMP Comment -->
+                        <div class="comment-box">
+                            <div class="comment-label">Ampersand Comment</div>
+                            <div class="comment-text" id="ampComment"></div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Extended Order Details -->
+                    <div class="collapsible-section">
+                        <div class="collapsible-header" onclick="toggleExtendedDetails()">
+                            <span class="collapsible-title">Extended Order Details</span>
+                            <span class="collapsible-icon" id="extendedIcon">▼</span>
+                        </div>
+                        <div class="collapsible-content" id="extendedContent">
+                            <div class="collapsible-inner">
+                                <div class="detail-item">
+                                    <div class="detail-item-label">Geo Target</div>
+                                    <div class="detail-item-value" id="geoTarget"></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">Demo Target</div>
+                                    <div class="detail-item-value" id="demoTarget"></div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="detail-item-label">List Match</div>
+                                    <div class="detail-item-value" id="listMatch"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Status Section -->
+                    <div class="status-section-wrapper">
+                        <h2 class="section-title">Detailed Status</h2>
+                        <div class="status-grid">
+                            <div class="status-card">
+                                <div class="status-label">Order Status</div>
+                                <div class="status-value" id="orderStatus"></div>
+                                <div class="status-meta" id="orderStatusMeta"></div>
+                                <div class="status-comment" id="orderStatusComment"></div>
+                            </div>
+                            <div class="status-card">
+                                <div class="status-label">Traffic Status</div>
+                                <div class="status-value" id="trafficStatus"></div>
+                                <div class="status-meta" id="trafficStatusMeta"></div>
+                                <div class="status-comment" id="trafficStatusComment"></div>
+                            </div>
+                        </div>
+
+                        <div class="action-buttons">
+                            <button class="btn btn-primary" onclick="openUpdateForm()">Submit an Update</button>
+                            <button class="btn btn-secondary" onclick="emailTeam()">Email the Team</button>
+                        </div>
+                    </div>
+
+                    <!-- Files Section -->
+                    <div class="files-section">
+                        <h2 class="section-title">Files</h2>
+                        <div class="tabs">
+                            <button class="tab active" data-type="IO" onclick="switchTab('IO')">IO</button>
+                            <button class="tab" data-type="Traffic" onclick="switchTab('Traffic')">Traffic</button>
+                            <button class="tab" data-type="Other" onclick="switchTab('Other')">Other</button>
+                        </div>
+                        <div class="file-list" id="fileList"></div>
+                    </div>
+                `;
+                
+                // Now populate with data
                 initializePage();
             }
         }
