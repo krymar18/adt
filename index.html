@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details 2</title>
+    <title>Order Details 11</title>
     <style>
         * {
             margin: 0;
@@ -1021,731 +1021,778 @@
     </div>
 
     <script>
-// ===============================
-// User data
-// ===============================
-const usersData = [
-  { name: "Matt Day", email: "matt@ribeye.media", initials: "MD" },
-  { name: "Kostia Rymar (Guest)", email: "rymarkostia@gmail.com", initials: "KR" },
-  { name: "Salsa Chebli", email: "salsabil.c@gmail.com", initials: "SC" },
-  { name: "Natasha Levinsohn", email: "Natasha.Levinsohn@ampersand.tv", initials: "NL" },
-  { name: "Maura Riley", email: "Maura.Riley@ampersand.tv", initials: "MR" }
-];
-
-let orderData = null;
-let filesData = null;
-let currentTab = 'IO';
-let currentUser = null;
-let orderId = null;
-
-const API_BASE_URL = 'https://default4657d5eea660475fbb1099b5df3efd.46.environment.api.powerplatform.com/powerautomate/automations/direct/workflows/c64389bbba15477eb0b909200beb65b1/triggers/manual/paths/invoke';
-
-// ===============================
-// Helpers (DOM guards & assertions)
-// ===============================
-function reqEl(id) {
-  const el = document.getElementById(id);
-  if (!el) {
-    console.error(`[UI] Missing required element #${id}. Was the view inserted/visible?`);
-    throw new Error(`Missing element #${id}`);
-  }
-  return el;
-}
-
-function assertRequiredIds(ids) {
-  const missing = ids.filter(id => !document.getElementById(id));
-  if (missing.length) {
-    console.error('Missing required DOM ids:', missing);
-    throw new Error('Missing required DOM ids: ' + missing.join(', '));
-  }
-}
-
-// ===============================
-// API fetch + response normalization
-// ===============================
-async function fetchOrderData(id) {
-  try {
-    const url =
-      API_BASE_URL +
-      '?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=OymdpruJbg2QyqJstyrh8qKTXDltEiQax89t2odSIvc&id=' +
-      encodeURIComponent(id);
-
-    console.log('Fetching from:', url);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
-    });
-
-    console.log('Response status:', response.status);
-
-    if (!response.ok) {
-      console.error('Response not OK:', response.status, response.statusText);
-      showErrorModal();
-      return false;
-    }
-
-    const data = await response.json();
-    console.log('Response data:', data);
-
-    if (!data.order || !data.files) {
-      console.error('Invalid response structure:', data);
-      showErrorModal();
-      return false;
-    }
-
-    // Normalize once here to the shape the page expects
-    orderData = normalizeOrder(data.order);
-    filesData = data.files;
-    return true;
-
-  } catch (error) {
-    console.error('Error fetching order data:', error);
-    showErrorModal();
-    return false;
-  }
-}
-
-/**
- * Normalize raw Power Automate/SharePoint payload to the shape this page expects.
- * - Handles FlightStar -> FlightStart
- * - Maps CM -> CampaignManager, Vendor -> MVPDContacts.Value
- * - Accepts choice fields as string or object with .Value
- * - Fixes inverted date range (optional swap if end < start)
- */
-function normalizeOrder(raw) {
-  const order = { ...raw };
-
-  // ---- Field name alignment ----
-  // Title/Advertiser
-  if (!order.Title && order.Advertiser) order.Title = order.Advertiser;
-
-  // Campaign Manager (CM alias)
-  if (!order.CampaignManager && order.CM) order.CampaignManager = order.CM;
-
-  // Vendor (this view reads MVPDContacts.Value)
-  if (!order.MVPDContacts && order.Vendor) {
-    order.MVPDContacts = { Value: order.Vendor };
-  }
-
-  // Flight dates
-  if (!order.FlightStart && order.FlightStar) order.FlightStart = order.FlightStar;
-
-  if (order.FlightStart && order.FlightEnd) {
-    const s = new Date(order.FlightStart), e = new Date(order.FlightEnd);
-    if (e < s) {
-      // Some feeds return the range reversed—swap to prevent confusing UI.
-      const tmp = order.FlightEnd;
-      order.FlightEnd = order.FlightStart;
-      order.FlightStart = tmp;
-    }
-  }
-
-  // ---- Choice fields: tolerate string OR object ----
-  const ensureChoice = (v) => (v && typeof v === 'object' && 'Value' in v) ? v : (v ? { Value: v } : v);
-
-  if (order.StreamingvsAddressable) order.StreamingvsAddressable = ensureChoice(order.StreamingvsAddressable);
-  if (order.Billingparty)          order.Billingparty          = ensureChoice(order.Billingparty);
-  if (order.Status)                order.Status                = ensureChoice(order.Status);
-  if (order.TrafficStatus)         order.TrafficStatus         = ensureChoice(order.TrafficStatus);
-
-  // Handle double-encoded "Order Type" if needed later
-  if (order["Order Type"] && typeof order["Order Type"] === 'string' && order["Order Type"].trim().startsWith('{')) {
-    try {
-      const parsed = JSON.parse(order["Order Type"]);
-      if (parsed?.Value) order["Order Type"] = parsed;
-    } catch {}
-  }
-
-  return order;
-}
-
-// ===============================
-// Error modal
-// ===============================
-function showErrorModal() {
-  const errorHtml =
-    '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;">' +
-      '<div style="background: white; padding: 40px; border-radius: 8px; max-width: 500px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">' +
-        '<div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>' +
-        '<h2 style="color: #d13438; margin-bottom: 16px; font-size: 24px;">Unable to Load Order</h2>' +
-        '<p style="color: #605e5c; margin-bottom: 24px; font-size: 16px; line-height: 1.5;">We couldn\'t retrieve the order information. This could be due to an invalid order ID or a connection issue.</p>' +
-        '<p style="color: #323130; font-weight: 600; margin-bottom: 24px; font-size: 14px;">Please reach out to the team via email for assistance.</p>' +
-        '<a href="mailto:support@ampersand.tv?subject=Order Access Issue&body=I am unable to access order details. Please assist." style="display: inline-block; padding: 12px 32px; background: #0078d4; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Email Support Team</a>' +
-      '</div>' +
-    '</div>';
-
-  document.body.insertAdjacentHTML('beforeend', errorHtml);
-}
-
-// ===============================
-// URL ID extraction + debug
-// ===============================
-function extractOrderIdFromPath() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const queryId = urlParams.get('id');
-  if (queryId) return queryId;
-
-  const path = window.location.pathname;
-  const cleanPath = path.replace('/ampdigital/', '').replace('/ampdigital', '').replace('.html', '');
-  const parts = cleanPath.split('/').filter(p => p && p.trim() !== '');
-  for (let i = parts.length - 1; i >= 0; i--) {
-    const part = parts[i];
-    if (!isNaN(part) && part !== '') return part;
-  }
-  return null;
-}
-
-function showDebugBox() {
-  const debugBox = document.getElementById('debugBox');
-  const debugContent = document.getElementById('debugContent');
-  const fullUrl = window.location.href;
-  const path = window.location.pathname;
-  const search = window.location.search;
-  const extractedId = extractOrderIdFromPath();
-
-  debugContent.innerHTML =
-    '<div><strong>Full URL:</strong> ' + fullUrl + '</div>' +
-    '<div><strong>Path:</strong> ' + path + '</div>' +
-    '<div><strong>Query:</strong> ' + (search || 'none') + '</div>' +
-    '<div><strong>Extracted ID:</strong> ' + (extractedId || 'not found') + '</div>' +
-    '<div><strong>User:</strong> ' + (currentUser ? currentUser.email : 'not logged in') + '</div>';
-
-  debugBox.style.display = 'block';
-  setTimeout(function() { debugBox.style.display = 'none'; }, 10000);
-}
-function closeDebugBox() {
-  document.getElementById('debugBox').style.display = 'none';
-}
-
-// ===============================
-// Auth & user selection
-// ===============================
-function checkAuthentication() {
-  orderId = extractOrderIdFromPath();
-
-  if (orderId) {
-    showDebugBox();
-  } else {
-    showErrorModal();
-    return;
-  }
-
-  const savedUser = localStorage.getItem('selectedUser');
-  if (savedUser) {
-    try {
-      currentUser = JSON.parse(savedUser);
-      showMainContent();
-    } catch (e) {
-      showAuthModal();
-    }
-  } else {
-    showAuthModal();
-  }
-}
-
-function showAuthModal() {
-  const authOverlay = document.getElementById('authOverlay');
-  const userSelect = document.getElementById('userSelect');
-
-  usersData.forEach(function(user) {
-    const option = document.createElement('option');
-    option.value = JSON.stringify(user);
-    option.textContent = user.name + ' (' + user.email + ')';
-    userSelect.appendChild(option);
-  });
-
-  authOverlay.classList.add('show');
-}
-
-document.getElementById('userSelect').addEventListener('change', function() {
-  const submitBtn = document.getElementById('authSubmit');
-  submitBtn.disabled = !this.value;
-});
-
-document.getElementById('authSubmit').addEventListener('click', function() {
-  const userSelect = document.getElementById('userSelect');
-  const rememberMe = document.getElementById('rememberMe').checked;
-
-  if (userSelect.value) {
-    currentUser = JSON.parse(userSelect.value);
-    if (rememberMe) {
-      localStorage.setItem('selectedUser', JSON.stringify(currentUser));
-    }
-    document.getElementById('authOverlay').classList.remove('show');
-    showMainContent();
-  }
-});
-
-// ===============================
-// Main content flow
-// ===============================
-async function showMainContent() {
-  document.getElementById('userIcon').textContent = currentUser.initials;
-  document.getElementById('currentUserName').textContent = currentUser.name;
-  document.getElementById('userSelector').style.display = 'block';
-
-  populateUserDropdown();
-
-  const mainContent = document.getElementById('mainContent');
-  mainContent.style.display = 'block';
-  mainContent.innerHTML =
-    '<div style="text-align: center; padding: 100px 20px;">' +
-      '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-      '<div style="font-size: 20px; color: #605e5c;">Loading order details...</div>' +
-    '</div>';
-
-  const success = await fetchOrderData(orderId);
-  console.log('fetchOrderData success?', success);
-
-  if (success) {
-    // Clone and insert template BEFORE populating
-    const template = document.getElementById('mainContentTemplate');
-    mainContent.innerHTML = template.innerHTML;
-    initializePage();
-  }
-}
-
-function populateUserDropdown() {
-  const dropdownMenu = document.getElementById('userDropdownMenu');
-  dropdownMenu.innerHTML = '';
-
-  usersData.forEach(function(user) {
-    const item = document.createElement('div');
-    item.className = 'user-dropdown-item';
-    if (user.email === currentUser.email) item.classList.add('active');
-
-    item.innerHTML =
-      '<div style="font-weight: 600;">' + user.name + '</div>' +
-      '<div style="font-size: 12px; color: #605e5c;">' + user.email + '</div>';
-
-    item.onclick = function() { switchUser(user); };
-    dropdownMenu.appendChild(item);
-  });
-}
-
-function toggleUserDropdown() {
-  const dropdown = document.getElementById('userDropdownMenu');
-  dropdown.classList.toggle('show');
-}
-
-document.addEventListener('click', function(event) {
-  const userSelector = document.getElementById('userSelector');
-  const dropdown = document.getElementById('userDropdownMenu');
-  if (!userSelector.contains(event.target)) {
-    dropdown.classList.remove('show');
-  }
-});
-
-function switchUser(user) {
-  currentUser = user;
-  localStorage.setItem('selectedUser', JSON.stringify(currentUser));
-  document.getElementById('userIcon').textContent = user.initials;
-  document.getElementById('currentUserName').textContent = user.name;
-  populateUserDropdown();
-  document.getElementById('userDropdownMenu').classList.remove('show');
-  console.log('User switched to:', user.email);
-  logDownloadActivity('User switched', user.email);
-}
-
-// ===============================
-// Initialize + populate
-// ===============================
-function initializePage() {
-  // Make sure all IDs the script will touch actually exist in the template
-  assertRequiredIds([
-    'streamingBadge','billingBadge','opid','advertiser','agency','vendor',
-    'flightDates','ae','cm','ampComment','orderStatus','orderStatusTime',
-    'trafficStatus','trafficStatusTime','fileList'
-  ]);
-  populateOrderDetails();
-  renderFiles();
-}
-
-function populateOrderDetails() {
-  reqEl('streamingBadge').textContent =
-    orderData.StreamingvsAddressable?.Value ?? orderData.StreamingvsAddressable ?? 'N/A';
-  reqEl('billingBadge').textContent =
-    orderData.Billingparty?.Value ?? orderData.Billingparty ?? 'N/A';
-
-  reqEl('opid').textContent = orderData.OPID || 'N/A';
-  reqEl('advertiser').textContent = orderData.Title || 'N/A';
-  reqEl('agency').textContent = orderData.Agency || 'N/A';
-  reqEl('vendor').textContent =
-    orderData.MVPDContacts?.Value ?? orderData.Vendor ?? 'N/A';
-
-  const flightStart = formatDate(orderData.FlightStart);
-  const flightEnd = formatDate(orderData.FlightEnd);
-  reqEl('flightDates').textContent = flightStart + ' - ' + flightEnd;
-
-  reqEl('ae').textContent =
-    orderData.AE?.DisplayName ?? orderData.AE?.Title ?? 'N/A';
-  reqEl('cm').textContent =
-    orderData.CampaignManager?.DisplayName ?? orderData.CM?.DisplayName ?? 'N/A';
-
-  const ampCommentEl = reqEl('ampComment');
-  if (orderData.AMPComment) {
-    ampCommentEl.textContent = orderData.AMPComment;
-  } else {
-    ampCommentEl.innerHTML = '<span class="comment-empty">No comment</span>';
-  }
-
-  const orderStatus = orderData.Status?.Value ?? orderData.Status ?? 'Unknown';
-  const orderStatusEl = reqEl('orderStatus');
-  orderStatusEl.textContent = orderStatus;
-  orderStatusEl.className = 'status-value ' + getStatusClass(orderStatus);
-
-  const orderStatusTime = reqEl('orderStatusTime');
-  if (orderData.Statuschange) {
-    let timeText = formatDateTime(orderData.Statuschange);
-    if (orderData.StatusUpdatedby) {
-      timeText += ' by ' + orderData.StatusUpdatedby;
-    }
-    orderStatusTime.textContent = timeText;
-  } else {
-    orderStatusTime.textContent = 'Never updated';
-  }
-
-  const trafficStatus = orderData.TrafficStatus?.Value ?? orderData.TrafficStatus ?? 'Unknown';
-  const trafficStatusEl = reqEl('trafficStatus');
-  trafficStatusEl.textContent = trafficStatus;
-  trafficStatusEl.className = 'status-value ' + getStatusClass(trafficStatus);
-
-  const trafficStatusTime = reqEl('trafficStatusTime');
-  if (orderData.TrafficStatusChange) {
-    let timeText = formatDateTime(orderData.TrafficStatusChange);
-    if (orderData.TrafficStatusUpdatedby) {
-      timeText += ' by ' + orderData.TrafficStatusUpdatedby;
-    }
-    trafficStatusTime.textContent = timeText;
-  } else {
-    trafficStatusTime.textContent = 'Never updated';
-  }
-}
-
-// ===============================
-// Utilities (formatting & status)
-// ===============================
-function getStatusClass(status) {
-  if (status === 'Confirmed') return 'status-confirmed';
-  if (status === 'Pending')   return 'status-pending';
-  if (status === 'Rejected')  return 'status-rejected';
-  return '';
-}
-function formatDate(dateString) {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
-}
-function formatDateTime(dateString) {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return (
-    date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) +
-    ' ' +
-    date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-  );
-}
-function formatFileDate(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
-}
-
-// ===============================
-// Tabs + Files rendering
-// ===============================
-function switchTab(tabName) {
-  currentTab = tabName;
-  document.querySelectorAll('.tab').forEach(function(tab) { tab.classList.remove('active'); });
-  const btn = document.querySelector('[data-type="' + tabName + '"]');
-  if (btn) btn.classList.add('active');
-  renderFiles();
-}
-
-function renderFiles() {
-  const fileList = reqEl('fileList');
-
-  const filteredFiles = (filesData || []).filter(function(file) {
-    return file.file_type && (file.file_type.Value === currentTab || file.file_type === currentTab);
-  });
-
-  if (filteredFiles.length === 0) {
-    fileList.innerHTML = '<div class="not-uploaded">No files available for this category</div>';
-    return;
-  }
-
-  fileList.innerHTML = filteredFiles.map(function(file) {
-    const fileName = file['{Name}'] || file.Name || 'Unnamed File';
-    const fileType = file.file_type ? (file.file_type.Value || file.file_type) : 'Unknown';
-    const fileDate = formatFileDate(file.Created);
-
-    // Try both {FullPath} and FullPath
-    const rawFullPath = file['{FullPath}'] || file.FullPath || '';
-    let sourceUrl = rawFullPath;
-
-    // If it's relative, prepend the site path
-    if (sourceUrl && !sourceUrl.startsWith('/sites/PoliticalStreaming/')) {
-      sourceUrl = '/sites/PoliticalStreaming/' + sourceUrl;
-    }
-
-    const downloadUrl = sourceUrl
-      ? 'https://datadriventv.sharepoint.com/sites/PoliticalStreaming/_layouts/15/download.aspx?SourceUrl=' +
-        encodeURIComponent(sourceUrl)
-      : '#';
-
-    // Escape single quotes for inline onclick
-    const safeFileName = String(fileName).replace(/'/g, "\\'");
-
-    return (
-      '<div class="file-item">' +
-        '<div class="file-info">' +
-          '<div class="file-name">' + fileName + '</div>' +
-          '<div class="file-meta">' + fileDate + ' • ' + fileType + '</div>' +
-        '</div>' +
-        '<div class="file-actions">' +
-          '<a href="' + downloadUrl + '" target="_blank" rel="noopener" class="download-btn" onclick="logDownload(\'' + safeFileName + '\')">' +
-            '<span class="download-icon">↓</span>' +
-          '</a>' +
-        '</div>' +
-      '</div>'
-    );
-  }).join('');
-}
-
-function logDownload(fileName) {
-  logDownloadActivity('File download', currentUser?.email, fileName);
-}
-
-function logDownloadActivity(action, userEmail, fileName) {
-  const logData = {
-    action: action,
-    user: userEmail || (currentUser ? currentUser.email : ''),
-    orderId: orderData?.ID,
-    opid: orderData?.OPID,
-    file: fileName || null,
-    timestamp: new Date().toISOString()
-  };
-  console.log('Activity logged:', logData);
-}
-
-// ===============================
-// Update Form (open/close/validate/submit)
-// ===============================
-let originalOrderStatus = null;
-let originalTrafficStatus = null;
-
-function openUpdateForm() {
-  reqEl('updateModalOverlay').classList.add('show');
-
-  originalOrderStatus   = orderData.Status?.Value || orderData.Status || '';
-  originalTrafficStatus = orderData.TrafficStatus?.Value || orderData.TrafficStatus || '';
-
-  // Current statuses
-  const currentOrderStatus   = originalOrderStatus;
-  const currentTrafficStatus = originalTrafficStatus;
-
-  const orderSection   = document.querySelector('.update-form-section:nth-of-type(1)');
-  const trafficSection = document.querySelector('.update-form-section:nth-of-type(2)');
-
-  // Order section enable/disable
-  if (currentOrderStatus === 'Not Uploaded') {
-    orderSection.style.opacity = '0.5';
-    orderSection.style.pointerEvents = 'none';
-    if (!orderSection.querySelector('.status-disabled-note')) {
-      const note = document.createElement('div');
-      note.className = 'status-disabled-note';
-      note.style.cssText = 'background: #fff4ce; padding: 12px; border-radius: 4px; margin-bottom: 12px; color: #323130; font-size: 14px;';
-      note.innerHTML = '<strong>⚠️ Note:</strong> Order status is "Not Uploaded" and cannot be updated at this time.';
-      orderSection.insertBefore(note, orderSection.firstChild.nextSibling);
-    }
-    reqEl('updateOrderStatus').disabled = true;
-    reqEl('updateOrderComments').disabled = true;
-  } else {
-    orderSection.style.opacity = '1';
-    orderSection.style.pointerEvents = 'auto';
-    const orderNote = orderSection.querySelector('.status-disabled-note');
-    if (orderNote) orderNote.remove();
-    reqEl('updateOrderStatus').disabled = false;
-    reqEl('updateOrderComments').disabled = false;
-  }
-
-  // Traffic section enable/disable
-  if (currentTrafficStatus === 'Not Uploaded') {
-    trafficSection.style.opacity = '0.5';
-    trafficSection.style.pointerEvents = 'none';
-    if (!trafficSection.querySelector('.status-disabled-note')) {
-      const note = document.createElement('div');
-      note.className = 'status-disabled-note';
-      note.style.cssText = 'background: #fff4ce; padding: 12px; border-radius: 4px; margin-bottom: 12px; color: #323130; font-size: 14px;';
-      note.innerHTML = '<strong>⚠️ Note:</strong> Traffic status is "Not Uploaded" and cannot be updated at this time.';
-      trafficSection.insertBefore(note, trafficSection.firstChild.nextSibling);
-    }
-    reqEl('updateTrafficStatus').disabled = true;
-    reqEl('updateTrafficComments').disabled = true;
-  } else {
-    trafficSection.style.opacity = '1';
-    trafficSection.style.pointerEvents = 'auto';
-    const trafficNote = trafficSection.querySelector('.status-disabled-note');
-    if (trafficNote) trafficNote.remove();
-    reqEl('updateTrafficStatus').disabled = false;
-    reqEl('updateTrafficComments').disabled = false;
-  }
-
-  updateFormValidation();
-}
-
-function emailTeam() {
-  // Prefer actual emails when available
-  const aeEmail = orderData.AE?.Email || '';
-  const cmEmail = orderData.CampaignManager?.Email || orderData.CM?.Email || '';
-  const toEmails = [aeEmail, cmEmail].filter(Boolean).join(',');
-  const ccEmail = 'kostiantyn.rymar@ampersand.tv';
-
-  const advertiser = orderData.Title || orderData.Advertiser || 'Order';
-  const flightStart = formatDate(orderData.FlightStart);
-  const flightEnd   = formatDate(orderData.FlightEnd);
-  const opid        = orderData.OPID || '';
-
-  const subject = `${advertiser} (${flightStart} - ${flightEnd}) - ${opid}`;
-  const body = 'Hi Team,%0D%0A%0D%0AI have a question regarding this order.%0D%0A%0D%0AThank you!';
-  const mailtoLink = 'mailto:' + toEmails + '?cc=' + ccEmail + '&subject=' + encodeURIComponent(subject) + '&body=' + body;
-  window.location.href = mailtoLink;
-}
-
-function closeUpdateForm() {
-  reqEl('updateModalOverlay').classList.remove('show');
-  reqEl('updateOrderStatus').value = '';
-  reqEl('updateOrderComments').value = '';
-  reqEl('updateTrafficStatus').value = '';
-  reqEl('updateTrafficComments').value = '';
-}
-
-function updateFormValidation() {
-  const orderStatus     = reqEl('updateOrderStatus').value;
-  const trafficStatus   = reqEl('updateTrafficStatus').value;
-  const orderComments   = reqEl('updateOrderComments').value.trim();
-  const trafficComments = reqEl('updateTrafficComments').value.trim();
-
-  const orderDisabled   = reqEl('updateOrderStatus').disabled;
-  const trafficDisabled = reqEl('updateTrafficStatus').disabled;
-
-  const orderCommentLabel   = reqEl('orderCommentLabel');
-  const trafficCommentLabel = reqEl('trafficCommentLabel');
-
-  orderCommentLabel.innerHTML   = (orderStatus   === 'Rejected') ? 'Comments <span class="required">*</span> (required for rejection)'   : 'Comments <span style="color: #605e5c;">(optional)</span>';
-  trafficCommentLabel.innerHTML = (trafficStatus === 'Rejected') ? 'Comments <span class="required">*</span> (required for rejection)' : 'Comments <span style="color: #605e5c;">(optional)</span>';
-
-  let isValid = true;
-
-  if (!orderDisabled && orderStatus === 'Rejected'  && !orderComments)   isValid = false;
-  if (!trafficDisabled && trafficStatus === 'Rejected' && !trafficComments) isValid = false;
-
-  const hasOrderSelection   = !orderDisabled   && !!orderStatus;
-  const hasTrafficSelection = !trafficDisabled && !!trafficStatus;
-  if (!hasOrderSelection && !hasTrafficSelection) isValid = false;
-  if (orderDisabled && trafficDisabled) isValid = false;
-
-  reqEl('submitUpdateBtn').disabled = !isValid;
-}
-
-document.getElementById('updateOrderStatus').addEventListener('change', updateFormValidation);
-document.getElementById('updateTrafficStatus').addEventListener('change', updateFormValidation);
-document.getElementById('updateOrderComments').addEventListener('input', updateFormValidation);
-document.getElementById('updateTrafficComments').addEventListener('input', updateFormValidation);
-
-function submitUpdate() {
-  const orderStatus     = reqEl('updateOrderStatus').value;
-  const trafficStatus   = reqEl('updateTrafficStatus').value;
-  const orderComments   = reqEl('updateOrderComments').value.trim();
-  const trafficComments = reqEl('updateTrafficComments').value.trim();
-
-  const orderChanged   = orderStatus   && (orderStatus   !== originalOrderStatus);
-  const trafficChanged = trafficStatus && (trafficStatus !== originalTrafficStatus);
-
-  let changeType = null;
-  if (orderChanged && trafficChanged) changeType = 'both';
-  else if (orderChanged)              changeType = 'io';
-  else if (trafficChanged)            changeType = 'traffic';
-
-  const updateData = {
-    change_type: changeType,
-    user: currentUser.email,
-    id: orderId
-  };
-
-  if (orderChanged) {
-    updateData.io = {
-      status: orderStatus,
-      comment: orderComments || ''
-    };
-  }
-  if (trafficChanged) {
-    updateData.traffic = {
-      status: trafficStatus,
-      comment: trafficComments || ''
-    };
-  }
-
-  console.log('=== SUBMISSION DATA ===');
-  console.log(JSON.stringify(updateData, null, 2));
-  console.log('======================');
-
-  const updateApiUrl = 'https://default4657d5eea660475fbb1099b5df3efd.46.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ddb6aeaa697448b5a3f466170aebad6f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=4HQQMYaekXI0s6exdOb-Ud7vmCNX19Y2K9h8sXjHru4';
-
-  const submitBtn = reqEl('submitUpdateBtn');
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Submitting...';
-
-  fetch(updateApiUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    },
-    body: JSON.stringify(updateData)
-  })
-  .then(function(response) {
-    console.log('Response status:', response.status);
-    if (!response.ok) {
-      throw new Error('Submission failed: ' + response.status);
-    }
-    return response.text().then(function(text) {
-      console.log('Raw response text:', text);
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        console.error('JSON parse error:', e);
-        console.error('Response was:', text);
-        throw new Error('Invalid JSON response from server');
-      }
-    });
-  })
-  .then(function(data) {
-    console.log('Success response:', data);
-    if (data.order) {
-      orderData = normalizeOrder(data.order);
-      populateOrderDetails();
-      console.log('Order data updated from server');
-    }
-    alert('Update submitted successfully!\n\nYour changes have been recorded.');
-    closeUpdateForm();
-  })
-  .catch(function(error) {
-    console.error('Submission error:', error);
-    alert('Failed to submit update.\n\nPlease try again or contact support if the issue persists.');
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Submit Update';
-  });
-}
-
-// ===============================
-// Boot
-// ===============================
-checkAuthentication();
-</script>
+        // User data
+        const usersData = [
+            { name: "Kostia Rymar", email: "kostiantyn.rymar@ampersand.tv", initials: "KR" },
+            { name: "Kostia Rymar (Guest)", email: "rymarkostia@gmail.com", initials: "KR" },
+            { name: "Salsa Chebli", email: "salsabil.c@gmail.com", initials: "SC" },
+            { name: "Natasha Levinsohn", email: "Natasha.Levinsohn@ampersand.tv", initials: "NL" },
+            { name: "Maura Riley", email: "Maura.Riley@ampersand.tv", initials: "MR" }
+        ];
+
+        let orderData = null;
+        let filesData = null;
+        let currentTab = 'IO';
+        let currentUser = null;
+        let orderId = null;
+        let originalOrderStatus = null;
+        let originalTrafficStatus = null;
+        let originalOrderComment = null;
+        let originalTrafficComment = null;
+
+        const API_BASE_URL = 'https://default4657d5eea660475fbb1099b5df3efd.46.environment.api.powerplatform.com/powerautomate/automations/direct/workflows/c64389bbba15477eb0b909200beb65b1/triggers/manual/paths/invoke';
+
+        // Fetch order data from Power Automate
+        async function fetchOrderData(id) {
+            try {
+                const url = API_BASE_URL + '?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=OymdpruJbg2QyqJstyrh8qKTXDltEiQax89t2odSIvc&id=' + id;
+                
+                console.log('Fetching from:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('Response status:', response.status);
+
+                if (!response.ok) {
+                    console.error('Response not OK:', response.status, response.statusText);
+                    showErrorModal();
+                    return false;
+                }
+
+                const data = await response.json();
+                console.log('Response data:', data);
+
+                if (!data.order || !data.files) {
+                    console.error('Invalid response structure:', data);
+                    showErrorModal();
+                    return false;
+                }
+
+                orderData = data.order;
+                filesData = data.files;
+                return true;
+
+            } catch (error) {
+                console.error('Error fetching order data:', error);
+                showErrorModal();
+                return false;
+            }
+        }
+
+        // Show error modal
+        function showErrorModal() {
+            const errorHtml = '<div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 99999; display: flex; align-items: center; justify-content: center;">' +
+                '<div style="background: white; padding: 40px; border-radius: 8px; max-width: 500px; text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.3);">' +
+                    '<div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>' +
+                    '<h2 style="color: #d13438; margin-bottom: 16px; font-size: 24px;">Unable to Load Order</h2>' +
+                    '<p style="color: #605e5c; margin-bottom: 24px; font-size: 16px; line-height: 1.5;">We couldn\'t retrieve the order information. This could be due to an invalid order ID or a connection issue.</p>' +
+                    '<p style="color: #323130; font-weight: 600; margin-bottom: 24px; font-size: 14px;">Please reach out to the team via email for assistance.</p>' +
+                    '<a href="mailto:support@ampersand.tv?subject=Order Access Issue&body=I am unable to access order details. Please assist." style="display: inline-block; padding: 12px 32px; background: #0078d4; color: white; text-decoration: none; border-radius: 4px; font-weight: 600; font-size: 16px;">Email Support Team</a>' +
+                '</div>' +
+            '</div>';
+
+            document.body.insertAdjacentHTML('beforeend', errorHtml);
+        }
+
+        // Extract order ID from URL
+        function extractOrderIdFromPath() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryId = urlParams.get('id');
+            if (queryId) {
+                return queryId;
+            }
+            
+            const path = window.location.pathname;
+            const cleanPath = path.replace('/ampdigital/', '').replace('/ampdigital', '').replace('.html', '');
+            const parts = cleanPath.split('/').filter(function(p) { return p && p.trim() !== ''; });
+            
+            for (let i = parts.length - 1; i >= 0; i--) {
+                const part = parts[i];
+                if (!isNaN(part) && part !== '') {
+                    return part;
+                }
+            }
+            
+            return null;
+        }
+
+        // Check authentication
+        function checkAuthentication() {
+            orderId = extractOrderIdFromPath();
+            
+            if (!orderId) {
+                showErrorModal();
+                return;
+            }
+            
+            const savedUser = localStorage.getItem('selectedUser');
+            
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    showMainContent();
+                } catch (e) {
+                    showAuthModal();
+                }
+            } else {
+                showAuthModal();
+            }
+        }
+
+        // Show auth modal
+        function showAuthModal() {
+            const authOverlay = document.getElementById('authOverlay');
+            const userSelect = document.getElementById('userSelect');
+            
+            usersData.forEach(function(user) {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(user);
+                option.textContent = user.name + ' (' + user.email + ')';
+                userSelect.appendChild(option);
+            });
+            
+            authOverlay.classList.add('show');
+        }
+
+        // Auth submit handler
+        document.getElementById('userSelect').addEventListener('change', function() {
+            const submitBtn = document.getElementById('authSubmit');
+            submitBtn.disabled = !this.value;
+        });
+
+        document.getElementById('authSubmit').addEventListener('click', function() {
+            const userSelect = document.getElementById('userSelect');
+            const rememberMe = document.getElementById('rememberMe').checked;
+            
+            if (userSelect.value) {
+                currentUser = JSON.parse(userSelect.value);
+                
+                if (rememberMe) {
+                    localStorage.setItem('selectedUser', JSON.stringify(currentUser));
+                }
+                
+                document.getElementById('authOverlay').classList.remove('show');
+                showMainContent();
+            }
+        });
+
+        // Show main content
+        async function showMainContent() {
+            document.getElementById('userIcon').textContent = currentUser.initials;
+            document.getElementById('currentUserName').textContent = currentUser.name;
+            document.getElementById('userSelector').style.display = 'block';
+            
+            populateUserDropdown();
+            
+            const mainContent = document.getElementById('mainContent');
+            mainContent.style.display = 'block';
+            mainContent.innerHTML = '<div style="text-align: center; padding: 100px 20px;">' +
+                '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
+                '<div style="font-size: 20px; color: #605e5c;">Loading order details...</div>' +
+            '</div>';
+            
+            const success = await fetchOrderData(orderId);
+            
+            if (success) {
+                // Show actual content after successful fetch
+                mainContent.style.display = 'block';
+                initializePage();
+            }
+        }
+
+        // Populate user dropdown
+        function populateUserDropdown() {
+            const dropdownMenu = document.getElementById('userDropdownMenu');
+            dropdownMenu.innerHTML = '';
+            
+            usersData.forEach(function(user) {
+                const item = document.createElement('div');
+                item.className = 'user-dropdown-item';
+                if (user.email === currentUser.email) {
+                    item.classList.add('active');
+                }
+                item.innerHTML = '<div style="font-weight: 600;">' + user.name + '</div>' +
+                    '<div style="font-size: 12px; color: #605e5c;">' + user.email + '</div>';
+                item.onclick = function() {
+                    switchUser(user);
+                };
+                dropdownMenu.appendChild(item);
+            });
+        }
+
+        // Toggle dropdown
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdownMenu');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown on outside click
+        document.addEventListener('click', function(event) {
+            const userSelector = document.getElementById('userSelector');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            if (!userSelector.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Switch user
+        function switchUser(user) {
+            currentUser = user;
+            localStorage.setItem('selectedUser', JSON.stringify(currentUser));
+            
+            document.getElementById('userIcon').textContent = user.initials;
+            document.getElementById('currentUserName').textContent = user.name;
+            
+            populateUserDropdown();
+            document.getElementById('userDropdownMenu').classList.remove('show');
+            
+            console.log('User switched to:', user.email);
+        }
+
+        // Toggle extended details
+        function toggleExtendedDetails() {
+            const content = document.getElementById('extendedContent');
+            const icon = document.getElementById('extendedIcon');
+            
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                icon.classList.remove('open');
+            } else {
+                content.classList.add('open');
+                icon.classList.add('open');
+            }
+        }
+
+        // Initialize page
+        function initializePage() {
+            populateOrderDetails();
+            renderFiles();
+        }
+
+        function populateOrderDetails() {
+            if (!orderData) {
+                console.error('No order data available');
+                return;
+            }
+
+            // Page Title with POL prefix
+            const orderType = orderData["Order Type"] || orderData.OrderType || '';
+            const prefix = orderType === "Political" ? "POL " : "";
+            const advertiser = orderData.Advertiser || orderData.Title || 'Order';
+            const opid = orderData.OPID || '';
+            
+            if (prefix) {
+                document.getElementById('pageTitle').innerHTML = '<span style="font-weight: 900;">' + prefix + '</span>' + advertiser + ' - ' + opid;
+            } else {
+                document.getElementById('pageTitle').textContent = advertiser + ' - ' + opid;
+            }
+
+            // Header badges
+            const streaming = orderData.StreamingvsAddressable 
+                ? (typeof orderData.StreamingvsAddressable === 'object' ? orderData.StreamingvsAddressable.Value : orderData.StreamingvsAddressable)
+                : 'N/A';
+            const billing = orderData.Billingparty 
+                ? (typeof orderData.Billingparty === 'object' ? orderData.Billingparty.Value : orderData.Billingparty)
+                : 'N/A';
+            
+            document.getElementById('streamingBadge').textContent = streaming;
+            document.getElementById('billingBadge').textContent = billing;
+            document.getElementById('budgetBadge').textContent = orderType || orderData.Budget || 'N/A';
+
+            // First row
+            document.getElementById('advertiser').textContent = advertiser;
+            document.getElementById('agency').textContent = orderData.Agency || 'N/A';
+            
+            const vendor = orderData.Vendor || (orderData.MVPDContacts 
+                ? (typeof orderData.MVPDContacts === 'object' ? orderData.MVPDContacts.Value : orderData.MVPDContacts)
+                : 'N/A');
+            document.getElementById('vendor').textContent = vendor;
+
+            // Second row
+            const flightStart = formatDateShort(orderData.FlightStar || orderData.FlightStart);
+            const flightEnd = formatDateShort(orderData.FlightEnd);
+            document.getElementById('flightDates').textContent = flightStart + ' - ' + flightEnd;
+            document.getElementById('placement').textContent = orderData.Placement || 'N/A';
+            
+            // Overall Status
+            const orderStatus = orderData.Status 
+                ? (typeof orderData.Status === 'object' ? orderData.Status.Value : orderData.Status)
+                : '';
+            const trafficStatus = orderData.TrafficStatus 
+                ? (typeof orderData.TrafficStatus === 'object' ? orderData.TrafficStatus.Value : orderData.TrafficStatus)
+                : '';
+            
+            const overallStatus = (orderStatus === 'Confirmed' && trafficStatus === 'Confirmed') ? 'Confirmed' : 'Awaiting Review';
+            const overallStatusEl = document.getElementById('overallStatus');
+            overallStatusEl.textContent = overallStatus;
+            overallStatusEl.className = 'overall-status ' + (overallStatus === 'Confirmed' ? 'confirmed' : 'awaiting');
+
+            // Team
+            const aeName = orderData.AE 
+                ? (orderData.AE.DisplayName || 'N/A')
+                : 'N/A';
+            const cmName = orderData.CM 
+                ? (orderData.CM.DisplayName || (orderData.CampaignManager ? orderData.CampaignManager.DisplayName : 'N/A'))
+                : (orderData.CampaignManager ? orderData.CampaignManager.DisplayName : 'N/A');
+            const olName = orderData.OL 
+                ? (orderData.OL.DisplayName || (orderData.OpsLead ? orderData.OpsLead.DisplayName : 'N/A'))
+                : (orderData.OpsLead ? orderData.OpsLead.DisplayName : 'N/A');
+            
+            document.getElementById('aeName').textContent = aeName;
+            document.getElementById('cmName').textContent = cmName;
+            document.getElementById('olName').textContent = olName;
+
+            // AMP Comment
+            const ampCommentEl = document.getElementById('ampComment');
+            if (orderData.AMPComment) {
+                ampCommentEl.textContent = orderData.AMPComment;
+            } else {
+                ampCommentEl.innerHTML = '<span class="comment-empty">No comment</span>';
+            }
+
+            // Extended Details
+            document.getElementById('geoTarget').textContent = orderData.GeoTarget || 'N/A';
+            document.getElementById('demoTarget').textContent = orderData.DemoTarget || 'N/A';
+            document.getElementById('listMatch').textContent = orderData.ListMatch || orderData.ListMatchDemo || 'N/A';
+
+            // Order Status
+            const orderStatusEl = document.getElementById('orderStatus');
+            orderStatusEl.textContent = orderStatus || 'Unknown';
+            orderStatusEl.className = 'status-value ' + getStatusClass(orderStatus);
+            
+            const orderStatusMeta = document.getElementById('orderStatusMeta');
+            if (orderData.Statuschange) {
+                let timeText = formatDateTime(orderData.Statuschange);
+                if (orderData.StatusUpdatedby) {
+                    timeText += ' by ' + orderData.StatusUpdatedby;
+                }
+                orderStatusMeta.textContent = timeText;
+            } else {
+                orderStatusMeta.textContent = 'Never updated';
+            }
+
+            const orderStatusComment = document.getElementById('orderStatusComment');
+            orderStatusComment.className = 'status-comment ' + getStatusBackgroundClass(orderStatus);
+            if (orderData.IOAffComment) {
+                orderStatusComment.textContent = '"' + orderData.IOAffComment + '"';
+            } else {
+                orderStatusComment.innerHTML = '<span class="comment-empty">No affiliate comments</span>';
+            }
+
+            // Traffic Status
+            const trafficStatusEl = document.getElementById('trafficStatus');
+            trafficStatusEl.textContent = trafficStatus || 'Unknown';
+            trafficStatusEl.className = 'status-value ' + getStatusClass(trafficStatus);
+            
+            const trafficStatusMeta = document.getElementById('trafficStatusMeta');
+            if (orderData.TrafficStatusChange) {
+                let timeText = formatDateTime(orderData.TrafficStatusChange);
+                if (orderData.TrafficStatusUpdatedby) {
+                    timeText += ' by ' + orderData.TrafficStatusUpdatedby;
+                }
+                trafficStatusMeta.textContent = timeText;
+            } else {
+                trafficStatusMeta.textContent = 'Never updated';
+            }
+
+            const trafficStatusComment = document.getElementById('trafficStatusComment');
+            trafficStatusComment.className = 'status-comment ' + getStatusBackgroundClass(trafficStatus);
+            if (orderData.TrafficAffComment) {
+                trafficStatusComment.textContent = '"' + orderData.TrafficAffComment + '"';
+            } else {
+                trafficStatusComment.innerHTML = '<span class="comment-empty">No affiliate comments</span>';
+            }
+        }
+
+        function getStatusClass(status) {
+            if (status === 'Confirmed') return 'status-confirmed';
+            if (status === 'Pending') return 'status-pending';
+            if (status === 'Rejected') return 'status-rejected';
+            if (status === 'Not Uploaded') return 'status-not-uploaded';
+            return '';
+        }
+
+        function getStatusBackgroundClass(status) {
+            if (status === 'Confirmed') return 'confirmed-bg';
+            if (status === 'Pending') return 'pending-bg';
+            if (status === 'Rejected') return 'rejected-bg';
+            return '';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+        }
+
+        function formatDateShort(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return (date.getMonth() + 1) + '/' + date.getDate();
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return 'N/A';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + ' ' +
+                   date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+
+        function switchTab(tabName) {
+            currentTab = tabName;
+            
+            document.querySelectorAll('.tab').forEach(function(tab) {
+                tab.classList.remove('active');
+            });
+            document.querySelector('[data-type="' + tabName + '"]').classList.add('active');
+            
+            renderFiles();
+        }
+
+        function renderFiles() {
+            const fileList = document.getElementById('fileList');
+            
+            if (!filesData || filesData.length === 0) {
+                fileList.innerHTML = '<div class="not-uploaded">No files available</div>';
+                return;
+            }
+            
+            const filteredFiles = filesData.filter(function(file) {
+                // Handle both old format (file_type.Value) and new format (file_type as string)
+                const fileType = file.file_type && typeof file.file_type === 'object' 
+                    ? file.file_type.Value 
+                    : file.file_type;
+                return fileType === currentTab;
+            });
+
+            if (filteredFiles.length === 0) {
+                fileList.innerHTML = '<div class="not-uploaded">No files available for this category</div>';
+                return;
+            }
+
+            fileList.innerHTML = filteredFiles.map(function(file) {
+                const fileName = file.Name || file['{Name}'] || 'Unnamed File';
+                const fileDate = formatDate(file.Created);
+                const fullPath = file.FullPath || file['{FullPath}'] || '';
+                
+                const downloadUrl = fullPath 
+                    ? 'https://datadriventv.sharepoint.com/sites/PoliticalStreaming/_layouts/15/download.aspx?SourceUrl=/sites/PoliticalStreaming/' + encodeURIComponent(fullPath)
+                    : '#';
+
+                return '<div class="file-item">' +
+                    '<div class="file-info">' +
+                        '<div class="file-name">' + fileName + '</div>' +
+                        '<div class="file-meta">' + fileDate + '</div>' +
+                    '</div>' +
+                    '<a href="' + downloadUrl + '" target="_blank" class="download-btn">↓ Download</a>' +
+                '</div>';
+            }).join('');
+        }
+
+        // Email team
+        function emailTeam() {
+            // Get emails from team members (handle both formats)
+            const aeEmail = orderData.AE && orderData.AE.Email 
+                ? orderData.AE.Email 
+                : '';
+            const cmEmail = orderData.CM && orderData.CM.Email 
+                ? orderData.CM.Email 
+                : (orderData.CampaignManager && orderData.CampaignManager.Email ? orderData.CampaignManager.Email : '');
+            const olEmail = orderData.OL && orderData.OL.Email 
+                ? orderData.OL.Email 
+                : (orderData.OpsLead && orderData.OpsLead.Email ? orderData.OpsLead.Email : '');
+            
+            const toEmails = [aeEmail, cmEmail, olEmail].filter(function(e) { return e; }).join(',');
+            
+            const ccEmails = [aeEmail, cmEmail, olEmail, 'kostiantyn.rymar@ampersand.tv']
+                .filter(function(e) { return e; })
+                .filter(function(email, index, self) {
+                    return self.indexOf(email) === index;
+                })
+                .join(',');
+            
+            const orderType = orderData["Order Type"] || orderData.OrderType || '';
+            const prefix = orderType === "Political" ? "POL " : "";
+            const advertiser = orderData.Advertiser || orderData.Title || 'Order';
+            const flightStart = formatDateShort(orderData.FlightStar || orderData.FlightStart);
+            const flightEnd = formatDateShort(orderData.FlightEnd);
+            const opid = orderData.OPID || '';
+            
+            const subject = prefix + advertiser + ' (' + flightStart + ' - ' + flightEnd + ') - ' + opid;
+            const body = 'Hi Team,%0D%0A%0D%0AI have a question regarding this order.%0D%0A%0D%0AThank you!';
+            
+            const mailtoLink = 'mailto:' + toEmails + '?cc=' + ccEmails + '&subject=' + encodeURIComponent(subject) + '&body=' + body;
+            
+            window.location.href = mailtoLink;
+        }
+
+        // Update form
+        function openUpdateForm() {
+            document.getElementById('updateModalOverlay').classList.add('show');
+            
+            // Extract status values (handle both old object format and new string format)
+            const currentOrderStatus = orderData.Status 
+                ? (typeof orderData.Status === 'object' ? orderData.Status.Value : orderData.Status)
+                : '';
+            const currentTrafficStatus = orderData.TrafficStatus 
+                ? (typeof orderData.TrafficStatus === 'object' ? orderData.TrafficStatus.Value : orderData.TrafficStatus)
+                : '';
+            
+            originalOrderStatus = currentOrderStatus;
+            originalTrafficStatus = currentTrafficStatus;
+            originalOrderComment = orderData.IOAffComment || '';
+            originalTrafficComment = orderData.TrafficAffComment || '';
+            
+            const orderStatusSelect = document.getElementById('updateOrderStatus');
+            const trafficStatusSelect = document.getElementById('updateTrafficStatus');
+            
+            if (originalOrderStatus === 'Confirmed' || originalOrderStatus === 'Rejected') {
+                orderStatusSelect.value = originalOrderStatus;
+                const emptyOption = orderStatusSelect.querySelector('option[value=""]');
+                if (emptyOption) emptyOption.remove();
+            } else {
+                orderStatusSelect.value = originalOrderStatus;
+            }
+            
+            if (originalTrafficStatus === 'Confirmed' || originalTrafficStatus === 'Rejected') {
+                trafficStatusSelect.value = originalTrafficStatus;
+                const emptyOption = trafficStatusSelect.querySelector('option[value=""]');
+                if (emptyOption) emptyOption.remove();
+            } else {
+                trafficStatusSelect.value = originalTrafficStatus;
+            }
+            
+            document.getElementById('updateOrderComments').value = originalOrderComment;
+            document.getElementById('updateTrafficComments').value = originalTrafficComment;
+            
+            const orderSection = document.querySelector('.update-form-section:nth-of-type(1)');
+            const trafficSection = document.querySelector('.update-form-section:nth-of-type(2)');
+            
+            if (originalOrderStatus === 'Not Uploaded') {
+                orderSection.style.opacity = '0.5';
+                orderSection.style.pointerEvents = 'none';
+                document.getElementById('updateOrderStatus').disabled = true;
+                document.getElementById('updateOrderComments').disabled = true;
+            } else {
+                orderSection.style.opacity = '1';
+                orderSection.style.pointerEvents = 'auto';
+                document.getElementById('updateOrderStatus').disabled = false;
+                document.getElementById('updateOrderComments').disabled = false;
+            }
+            
+            if (originalTrafficStatus === 'Not Uploaded') {
+                trafficSection.style.opacity = '0.5';
+                trafficSection.style.pointerEvents = 'none';
+                document.getElementById('updateTrafficStatus').disabled = true;
+                document.getElementById('updateTrafficComments').disabled = true;
+            } else {
+                trafficSection.style.opacity = '1';
+                trafficSection.style.pointerEvents = 'auto';
+                document.getElementById('updateTrafficStatus').disabled = false;
+                document.getElementById('updateTrafficComments').disabled = false;
+            }
+            
+            updateFormValidation();
+        }
+
+        function closeUpdateForm() {
+            document.getElementById('updateModalOverlay').classList.remove('show');
+            document.getElementById('updateOrderStatus').value = '';
+            document.getElementById('updateOrderComments').value = '';
+            document.getElementById('updateTrafficStatus').value = '';
+            document.getElementById('updateTrafficComments').value = '';
+            
+            const orderStatusSelect = document.getElementById('updateOrderStatus');
+            const trafficStatusSelect = document.getElementById('updateTrafficStatus');
+            
+            if (!orderStatusSelect.querySelector('option[value=""]')) {
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = '-- Select Status --';
+                orderStatusSelect.insertBefore(emptyOption, orderStatusSelect.firstChild);
+            }
+            
+            if (!trafficStatusSelect.querySelector('option[value=""]')) {
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = '-- Select Status --';
+                trafficStatusSelect.insertBefore(emptyOption, trafficStatusSelect.firstChild);
+            }
+        }
+
+        document.getElementById('updateOrderStatus').addEventListener('change', function() {
+            if (this.value !== originalOrderStatus) {
+                document.getElementById('updateOrderComments').value = '';
+            } else {
+                document.getElementById('updateOrderComments').value = originalOrderComment;
+            }
+            updateFormValidation();
+        });
+
+        document.getElementById('updateTrafficStatus').addEventListener('change', function() {
+            if (this.value !== originalTrafficStatus) {
+                document.getElementById('updateTrafficComments').value = '';
+            } else {
+                document.getElementById('updateTrafficComments').value = originalTrafficComment;
+            }
+            updateFormValidation();
+        });
+
+        document.getElementById('updateOrderComments').addEventListener('input', updateFormValidation);
+        document.getElementById('updateTrafficComments').addEventListener('input', updateFormValidation);
+
+        function updateFormValidation() {
+            const orderStatus = document.getElementById('updateOrderStatus').value;
+            const trafficStatus = document.getElementById('updateTrafficStatus').value;
+            const orderComments = document.getElementById('updateOrderComments').value.trim();
+            const trafficComments = document.getElementById('updateTrafficComments').value.trim();
+            
+            const orderDisabled = document.getElementById('updateOrderStatus').disabled;
+            const trafficDisabled = document.getElementById('updateTrafficStatus').disabled;
+            
+            const orderCommentLabel = document.getElementById('orderCommentLabel');
+            const trafficCommentLabel = document.getElementById('trafficCommentLabel');
+            
+            if (orderStatus === 'Rejected') {
+                orderCommentLabel.innerHTML = 'Comments <span class="required">* (required for rejection)</span>';
+            } else {
+                orderCommentLabel.innerHTML = 'Comments <span style="color: #605e5c;">(optional)</span>';
+            }
+            
+            if (trafficStatus === 'Rejected') {
+                trafficCommentLabel.innerHTML = 'Comments <span class="required">* (required for rejection)</span>';
+            } else {
+                trafficCommentLabel.innerHTML = 'Comments <span style="color: #605e5c;">(optional)</span>';
+            }
+            
+            let isValid = true;
+            
+            if (!orderDisabled && orderStatus === 'Rejected' && !orderComments) {
+                isValid = false;
+            }
+            
+            if (!trafficDisabled && trafficStatus === 'Rejected' && !trafficComments) {
+                isValid = false;
+            }
+            
+            const hasOrderChange = !orderDisabled && orderStatus && orderStatus !== originalOrderStatus;
+            const hasTrafficChange = !trafficDisabled && trafficStatus && trafficStatus !== originalTrafficStatus;
+            
+            if (!hasOrderChange && !hasTrafficChange) {
+                isValid = false;
+            }
+            
+            if (orderDisabled && trafficDisabled) {
+                isValid = false;
+            }
+            
+            document.getElementById('submitUpdateBtn').disabled = !isValid;
+        }
+
+        function submitUpdate() {
+            const orderStatus = document.getElementById('updateOrderStatus').value;
+            const trafficStatus = document.getElementById('updateTrafficStatus').value;
+            const orderComments = document.getElementById('updateOrderComments').value.trim();
+            const trafficComments = document.getElementById('updateTrafficComments').value.trim();
+            
+            const orderChanged = orderStatus && orderStatus !== originalOrderStatus;
+            const trafficChanged = trafficStatus && trafficStatus !== originalTrafficStatus;
+            
+            let changeType = null;
+            if (orderChanged && trafficChanged) {
+                changeType = 'both';
+            } else if (orderChanged) {
+                changeType = 'io';
+            } else if (trafficChanged) {
+                changeType = 'traffic';
+            }
+            
+            const updateData = {
+                order_id: orderId,
+                change_type: changeType,
+                user: currentUser.email
+            };
+            
+            if (orderChanged) {
+                updateData.io = {
+                    status: orderStatus,
+                    comment: orderComments || ''
+                };
+            }
+            
+            if (trafficChanged) {
+                updateData.traffic = {
+                    status: trafficStatus,
+                    comment: trafficComments || ''
+                };
+            }
+            
+            console.log('=== SUBMISSION DATA ===');
+            console.log(JSON.stringify(updateData, null, 2));
+            console.log('======================');
+            
+            const updateApiUrl = 'https://default4657d5eea660475fbb1099b5df3efd.46.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/ddb6aeaa697448b5a3f466170aebad6f/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=4HQQMYaekXI0s6exdOb-Ud7vmCNX19Y2K9h8sXjHru4';
+            
+            const submitBtn = document.getElementById('submitUpdateBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            fetch(updateApiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(updateData)
+            })
+            .then(function(response) {
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error('Submission failed: ' + response.status);
+                }
+                
+                return response.text().then(function(text) {
+                    console.log('Raw response text:', text);
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        console.error('JSON parse error:', e);
+                        console.error('Response was:', text);
+                        throw new Error('Invalid JSON response from server');
+                    }
+                });
+            })
+            .then(function(data) {
+                console.log('Success response:', data);
+                
+                if (data.order) {
+                    orderData = data.order;
+                    populateOrderDetails();
+                    console.log('Order data updated from server');
+                }
+                
+                alert('Update submitted successfully!\n\nYour changes have been recorded.');
+                closeUpdateForm();
+            })
+            .catch(function(error) {
+                console.error('Submission error:', error);
+                alert('Failed to submit update.\n\nPlease try again or contact support if the issue persists.');
+                
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Update';
+            });
+        }
+
+        // Initialize
+        checkAuthentication();
+    </script>
 </body>
 </html>
