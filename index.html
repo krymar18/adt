@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Order Details</title>
+    <title>Order Details 1</title>
     <style>
         * {
             margin: 0;
@@ -1182,27 +1182,30 @@
             }
         });
 
+        
         // Show main content
         async function showMainContent() {
-            document.getElementById('userIcon').textContent = currentUser.initials;
-            document.getElementById('currentUserName').textContent = currentUser.name;
-            document.getElementById('userSelector').style.display = 'block';
-            
-            populateUserDropdown();
-            
-            const mainContent = document.getElementById('mainContent');
-            mainContent.style.display = 'block';
-            mainContent.innerHTML = '<div style="text-align: center; padding: 100px 20px;">' +
-                '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-                '<div style="font-size: 20px; color: #605e5c;">Loading order details...</div>' +
-            '</div>';
-            
-            const success = await fetchOrderData(orderId);
-            
-            if (success) {
-                location.reload();
-            }
+          document.getElementById('userIcon').textContent = currentUser.initials;
+          document.getElementById('currentUserName').textContent = currentUser.name;
+          document.getElementById('userSelector').style.display = 'block';
+        
+          populateUserDropdown();
+        
+          const mainContent = document.getElementById('mainContent');
+          mainContent.style.display = 'block';
+          mainContent.innerHTML = '<div style="text-align: center; padding: 100px 20px;">' +
+            '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
+            '<div style="font-size: 20px; color: #605e5c;">Loading order details...</div>' +
+          '</div>';
+        
+          const success = await fetchOrderData(orderId);
+        
+          if (success) {
+        -   location.reload();
+        +   initializePage();
+          }
         }
+
 
         // Populate user dropdown
         function populateUserDropdown() {
