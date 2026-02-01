@@ -1015,7 +1015,7 @@
 
             <div class="update-modal-actions">
                 <button class="update-modal-btn cancel" onclick="closeUpdateForm()">Cancel</button>
-                <button class="update-modal-btn submit" id="submitUpdateBtn" onclick="submitUpdate()">Submit Update</button>
+                <button class="update-modal-btn submit" id="submitUpdateBtn" onclick="submitUpdate()">Change Status</button>
             </div>
         </div>
     </div>
@@ -1276,7 +1276,7 @@
                     <!-- Collapsible Extended Order Details -->
                     <div class="collapsible-section">
                         <div class="collapsible-header" onclick="toggleExtendedDetails()">
-                            <span class="collapsible-title">Extended Order Details</span>
+                            <span class="collapsible-title">Geo and Audience Targets</span>
                             <span class="collapsible-icon" id="extendedIcon">▼</span>
                         </div>
                         <div class="collapsible-content" id="extendedContent">
@@ -1286,11 +1286,11 @@
                                     <div class="detail-item-value" id="geoTarget"></div>
                                 </div>
                                 <div class="detail-item">
-                                    <div class="detail-item-label">Demo Target</div>
+                                    <div class="detail-item-label">Pre-built Audience Target</div>
                                     <div class="detail-item-value" id="demoTarget"></div>
                                 </div>
                                 <div class="detail-item">
-                                    <div class="detail-item-label">List Match</div>
+                                    <div class="detail-item-label">List Match Audience Target</div>
                                     <div class="detail-item-value" id="listMatch"></div>
                                 </div>
                             </div>
@@ -1299,7 +1299,7 @@
 
                     <!-- Status Section -->
                     <div class="status-section-wrapper">
-                        <h2 class="section-title">Detailed Status</h2>
+                        <h2 class="section-title">Status Details</h2>
                         <div class="status-grid">
                             <div class="status-card">
                                 <div class="status-label">Order Status</div>
@@ -1916,10 +1916,10 @@
             })
             .catch(function(error) {
                 console.error('Submission error:', error);
-                alert('Failed to submit update.\n\nPlease try again or contact support if the issue persists.');
+                alert('Failed to change status.\n\nPlease try again or contact support if the issue persists.');
                 
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Submit Update';
+                submitBtn.textContent = 'Change Status';
             });
         }
 
