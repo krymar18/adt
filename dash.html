@@ -396,41 +396,69 @@
             background: #0078d4;
         }
 
-        /* Column filter dropdown */
-        .column-filter-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: white;
-            border: 1px solid #e1e1e1;
-            border-radius: 4px;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-            padding: 8px;
-            min-width: 200px;
-            z-index: 1000;
-            margin-top: 4px;
-        }
+       /* Column filter dropdown */
+.column-filter-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid #d1d1d1;
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    padding: 12px;
+    min-width: 220px;
+    z-index: 1000;
+    margin-top: 8px;
+}
 
-        .column-filter-dropdown.show {
-            display: block;
-        }
+.column-filter-dropdown::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid white;
+}
 
-        .column-filter-dropdown input,
-        .column-filter-dropdown select {
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #e1e1e1;
-            border-radius: 4px;
-            font-size: 12px;
-            font-family: 'Segoe UI', Arial, sans-serif;
-        }
+.column-filter-dropdown::after {
+    content: '';
+    position: absolute;
+    top: -9px;
+    left: 20px;
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid #d1d1d1;
+}
 
-        .column-filter-dropdown input:focus,
-        .column-filter-dropdown select:focus {
-            outline: none;
-            border-color: #0078d4;
-        }
+.column-filter-dropdown.show {
+    display: block;
+}
+
+.column-filter-dropdown input,
+.column-filter-dropdown select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #d1d1d1;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #fafafa;
+    transition: all 0.2s;
+}
+
+.column-filter-dropdown input:focus,
+.column-filter-dropdown select:focus {
+    outline: none;
+    border-color: #0078d4;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+}
 
         td {
             padding: 12px;
@@ -1260,20 +1288,21 @@
             return orderType;
         }
 
-        // Format value for display
-        function formatValue(value) {
-            if (value === null || value === undefined || value === '') {
-                return '<span class="null-value">null</span>';
-            }
-            return value;
-        }
 
-        // Format date in short format (m/d)
-        function formatDateShort(dateString) {
-            if (!dateString) return '<span class="null-value">null</span>';
-            const date = new Date(dateString);
-            return (date.getMonth() + 1) + '/' + date.getDate();
-        }
+        // Format value for display
+function formatValue(value) {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+    return value;
+}
+
+// Format date in short format (m/d)
+function formatDateShort(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return (date.getMonth() + 1) + '/' + date.getDate();
+}
 
         // Format date time for tooltip
         function formatDateTime(dateString) {
@@ -1283,9 +1312,9 @@
                    date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         }
 
-        // Get status badge HTML with tooltip data
-        function getStatusBadge(status, updatedBy, changeDate) {
-            if (!status) return '<span class="null-value">null</span>';
+// Get status badge HTML with tooltip data
+function getStatusBadge(status, updatedBy, changeDate) {
+    if (!status) return '';
             
             let className = 'status-badge ';
             if (status === 'Confirmed') className += 'status-confirmed';
@@ -1474,4 +1503,5 @@
     </script>
 </body>
 </html>
+
 
