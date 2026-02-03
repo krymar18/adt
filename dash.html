@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #323130;
+            padding: 20px;
+            padding-top: 80px;
+        }
+
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 32px;
+        }
+
+        /* User Selector - Same as detail page */
+        .user-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+        }
+
+        .current-user {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .current-user:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .user-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #0078d4;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .user-dropdown-icon {
+            font-size: 12px;
+            color: #605e5c;
+        }
+
+        .user-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 8px;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            min-width: 250px;
+        }
+
+        .user-dropdown-menu.show {
+            display: block;
+        }
+
+        .user-dropdown-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f2f1;
+            transition: background 0.2s;
+        }
+
+        .user-dropdown-item:hover {
+            background: #f3f2f1;
+        }
+
+        .user-dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .user-dropdown-item.active {
+            background: #e6f4ff;
+            font-weight: 600;
+        }
+
+        /* Auth Modal - Same as detail page */
+        .auth-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .auth-overlay.show {
+            display: flex;
+        }
+
+        .auth-modal {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 450px;
+            padding: 32px;
+        }
+
+        .auth-modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #323130;
+        }
+
+        .auth-modal-subtitle {
+            font-size: 14px;
+            color: #605e5c;
+            margin-bottom: 24px;
+        }
+
+        .auth-form-group {
+            margin-bottom: 20px;
+        }
+
+        .auth-form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #323130;
+        }
+
+        .auth-select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .auth-select:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
+        .auth-checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .auth-checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .auth-checkbox-label {
+            font-size: 14px;
+            color: #323130;
+            cursor: pointer;
+        }
+
+        .auth-submit-btn {
+            width: 100%;
+            padding: 12px 24px;
+            background: #0078d4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .auth-submit-btn:hover {
+            background: #106ebe;
+        }
+
+        .auth-submit-btn:disabled {
+            background: #c8c6c4;
+            cursor: not-allowed;
+        }
+
+        /* Header */
+        .page-header {
+            border-bottom: 2px solid #0078d4;
+            padding-bottom: 16px;
+            margin-bottom: 32px;
+        }
+
+        .page-title {
+            font-size: 28px;
+            font-weight: 700;
+            color: #0078d4;
+        }
+
+        /* Filters Section */
+        .filters-section {
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border-left: 4px solid #0078d4;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            color: #605e5c;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .filter-input,
+        .filter-select {
+            padding: 10px 12px;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 14px;
+            background: white;
+        }
+
+        .filter-input:focus,
+        .filter-select:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
+        /* Search Bar */
+        .search-section {
+            margin-bottom: 24px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #0078d4;
+            border-radius: 4px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 16px;
+            background: white;
+        }
+
+        .search-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+        }
+
+        .search-input::placeholder {
+            color: #a19f9d;
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            border-radius: 8px;
+            border: 1px solid #e1e1e1;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            table-layout: fixed;
+        }
+
+        thead {
+            background: #f3f2f1;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        th {
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 700;
+            color: #323130;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e1e1e1;
+            white-space: nowrap;
+            position: relative;
+            min-width: 100px;
+            resize: horizontal;
+            overflow: hidden;
+        }
+
+        th .th-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 4px;
+        }
+
+        th .th-label {
+            flex: 1;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th .th-label:hover {
+            color: #0078d4;
+        }
+
+        th .sort-indicator {
+            font-size: 10px;
+            color: #605e5c;
+        }
+
+        th .filter-icon {
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 14px;
+            transition: background 0.2s;
+            line-height: 1;
+        }
+
+        th .filter-icon:hover {
+            background: #e1e1e1;
+        }
+
+        th .filter-icon.active {
+            background: #0078d4;
+            color: white;
+        }
+
+        th .resize-handle {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            background: transparent;
+            z-index: 1;
+        }
+
+        th .resize-handle:hover {
+            background: #0078d4;
+        }
+
+        /* Column filter dropdown */
+        .column-filter-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            padding: 8px;
+            min-width: 200px;
+            z-index: 1000;
+            margin-top: 4px;
+        }
+
+        .column-filter-dropdown.show {
+            display: block;
+        }
+
+        .column-filter-dropdown input,
+        .column-filter-dropdown select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+
+        .column-filter-dropdown input:focus,
+        .column-filter-dropdown select:focus {
+            outline: none;
+            border-color: #0078d4;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f3f2f1;
+            font-size: 14px;
+            color: #323130;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        tr:hover {
+            background: #f9f9f9;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* OPID bold */
+        .opid-bold {
+            font-weight: 700;
+        }
+
+        /* Status Badges with Tooltip */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
+            cursor: help;
+            position: relative;
+        }
+
+        .status-confirmed {
+            background: rgba(16, 124, 16, 0.1);
+            color: #107c10;
+        }
+
+        .status-pending {
+            background: rgba(247, 99, 12, 0.1);
+            color: #f7630c;
+        }
+
+        .status-rejected {
+            background: rgba(209, 52, 56, 0.1);
+            color: #d13438;
+        }
+
+        .status-not-uploaded {
+            background: rgba(161, 159, 157, 0.1);
+            color: #a19f9d;
+        }
+
+        /* Tooltip */
+        .status-tooltip {
+            display: none;
+            position: fixed;
+            background: #323130;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 10000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            pointer-events: none;
+        }
+
+        .status-tooltip.show {
+            display: block;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: white;
+            border: 1px solid #e1e1e1;
+            border-radius: 4px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 200px;
+        }
+
+        .context-menu.show {
+            display: block;
+        }
+
+        .context-menu-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #323130;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: #f3f2f1;
+        }
+
+        .context-menu-item:first-child {
+            border-radius: 4px 4px 0 0;
+        }
+
+        .context-menu-item:last-child {
+            border-radius: 0 0 4px 4px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #a19f9d;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+        }
+
+        /* Null value styling */
+        .null-value {
+            color: #a19f9d;
+            font-style: italic;
+        }
+
+        /* Drag and drop for reordering */
+        th.dragging {
+            opacity: 0.5;
+        }
+
+        th.drag-over {
+            border-left: 3px solid #0078d4;
+        }
+    </style>
+</head>
+<body>
+    <!-- User Authentication Modal -->
+    <div class="auth-overlay" id="authOverlay">
+        <div class="auth-modal">
+            <h2 class="auth-modal-title">Select Your Account</h2>
+            <p class="auth-modal-subtitle">Choose your account to continue</p>
+            
+            <div class="auth-form-group">
+                <label class="auth-form-label" for="userSelect">Your Account</label>
+                <select class="auth-select" id="userSelect">
+                    <option value="">-- Select Your Account --</option>
+                </select>
+            </div>
+
+            <div class="auth-checkbox-group">
+                <input type="checkbox" id="rememberMe" class="auth-checkbox">
+                <label for="rememberMe" class="auth-checkbox-label">Remember me on this device</label>
+            </div>
+
+            <button class="auth-submit-btn" id="authSubmit" disabled>Continue</button>
+        </div>
+    </div>
+
+    <!-- User Selector in Top Right -->
+    <div class="user-selector" id="userSelector" style="display: none;">
+        <div class="current-user" onclick="toggleUserDropdown()">
+            <div class="user-icon" id="userIcon"></div>
+            <span class="user-name" id="currentUserName"></span>
+            <span class="user-dropdown-icon">▼</span>
+        </div>
+        <div class="user-dropdown-menu" id="userDropdownMenu"></div>
+    </div>
+
+    <!-- Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <div class="context-menu-item" onclick="openOrderDetails()">See Order Details</div>
+    </div>
+
+    <!-- Status Tooltip -->
+    <div class="status-tooltip" id="statusTooltip"></div>
+
+    <!-- Main Content -->
+    <div class="container" id="mainContent" style="display: none;">
+        <!-- Header -->
+        <div class="page-header">
+            <h1 class="page-title">Order Dashboard</h1>
+        </div>
+
+        <!-- Filters Section -->
+        <div class="filters-section">
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label class="filter-label">Advertiser</label>
+                    <input type="text" class="filter-input" id="filterAdvertiser" placeholder="Filter by advertiser...">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Agency</label>
+                    <input type="text" class="filter-input" id="filterAgency" placeholder="Filter by agency...">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Flight Start</label>
+                    <input type="date" class="filter-input" id="filterFlightStart">
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">Flight End</label>
+                    <input type="date" class="filter-input" id="filterFlightEnd">
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-section">
+            <input type="text" class="search-input" id="globalSearch" placeholder="🔍 Search across all columns...">
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table id="ordersTable">
+                <thead>
+                    <tr id="headerRow"></tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // User data - same as detail page
+        const usersData = [
+            { name: "Kostia Rymar", email: "kostiantyn.rymar@ampersand.tv", initials: "KR" },
+            { name: "Kostia Rymar (Guest)", email: "rymarkostia@gmail.com", initials: "KR" },
+            { name: "Salsa Chebli", email: "salsabil.c@gmail.com", initials: "SC" },
+            { name: "Natasha Levinsohn", email: "Natasha.Levinsohn@ampersand.tv", initials: "NL" },
+            { name: "Maura Riley", email: "Maura.Riley@ampersand.tv", initials: "MR" }
+        ];
+
+        // Static orders data
+        const ordersData = [
+            {
+                "Advertiser": "Ribeye test",
+                "Agency": "Poolhouse",
+                "Billingparty": "3P",
+                "Order Type": {
+                    "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+                    "Id": 0,
+                    "Value": "Pollitical"
+                },
+                "Budget": "Political",
+                "OPID": "115557",
+                "FlightStar": "2025-06-23",
+                "FlightEnd": "2025-06-10",
+                "StreamingvsAddressable": "Streaming",
+                "AMPComment": "Test order 1",
+                "Status": "Confirmed",
+                "StatusUpdatedby": "Kostiantyn Rymar",
+                "Statuschange": "2026-01-22T21:32:33Z",
+                "IOAffComment": "test",
+                "TrafficStatus": "Pending",
+                "TrafficStatusUpdatedby": "Kostiantyn Rymar",
+                "TrafficStatusChange": "2026-01-22T21:32:33Z",
+                "TrafficAffComment": null,
+                "id": null
+            },
+            {
+                "Advertiser": "Test Advertiser",
+                "Agency": "Test Agency",
+                "Billingparty": "1P",
+                "Order Type": {
+                    "@odata.type": "#Microsoft.Azure.Connectors.SharePoint.SPListExpandedReference",
+                    "Id": 0,
+                    "Value": "Pollitical"
+                },
+                "Budget": "Political",
+                "OPID": "111111",
+                "FlightStar": "2026-01-24",
+                "FlightEnd": "2025-02-17",
+                "StreamingvsAddressable": "Addressable",
+                "AMPComment": "Test order 1",
+                "Status": "Rejected",
+                "StatusUpdatedby": "Natasha.Levinsohn@ampersand.tv",
+                "Statuschange": "2026-02-02T17:01:10Z",
+                "IOAffComment": "sdafad",
+                "TrafficStatus": "Confirmed",
+                "TrafficStatusUpdatedby": "rymarkostia@gmail.com",
+                "TrafficStatusChange": "2026-02-02T16:52:06Z",
+                "TrafficAffComment": null,
+                "id": "KlN0dXBpZF9JbmNyaXB0aW9uXzk5KnN0bWtUUGlsYUd8NHxGcmlkYXksIEphbnVhcnkgMz9sIDIwMjYgNDozNTo0NCBBTQ==YjcyZmRmOTMtZTNjYS00MmJiLWE="
+            },
+            {
+                "Advertiser": "Ribeye test",
+                "Agency": "Sage Media Planning & Placement",
+                "Billingparty": "3P",
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": "115633",
+                "FlightStar": "2025-02-10",
+                "FlightEnd": "2025-02-16",
+                "StreamingvsAddressable": "Streaming",
+                "AMPComment": "Test order 3",
+                "Status": "Not Uploaded",
+                "StatusUpdatedby": "Kostiantyn Rymar",
+                "Statuschange": "2026-01-08T20:05:19Z",
+                "IOAffComment": null,
+                "TrafficStatus": "Rejected",
+                "TrafficStatusUpdatedby": "Kostiantyn Rymar",
+                "TrafficStatusChange": "2026-01-08T20:05:19Z",
+                "TrafficAffComment": "yay",
+                "id": null
+            },
+            {
+                "Advertiser": "Ribeye test",
+                "Agency": "Matchstick Media",
+                "Billingparty": "1P",
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": "115645",
+                "FlightStar": "2025-02-13",
+                "FlightEnd": "2025-02-18",
+                "StreamingvsAddressable": "Addressable",
+                "AMPComment": "Test order 4",
+                "Status": "Pending",
+                "StatusUpdatedby": "Kostiantyn Rymar",
+                "Statuschange": "2026-01-08T19:32:58Z",
+                "IOAffComment": null,
+                "TrafficStatus": "Not Uploaded",
+                "TrafficStatusUpdatedby": "Kostiantyn Rymar",
+                "TrafficStatusChange": "2026-01-08T19:32:58Z",
+                "TrafficAffComment": null,
+                "id": null
+            },
+            {
+                "Advertiser": "Ribeye test",
+                "Agency": "Symmetry c/o Sage",
+                "Billingparty": "1P",
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": "115615",
+                "FlightStar": "2025-06-26",
+                "FlightEnd": "2025-02-22",
+                "StreamingvsAddressable": "Addressable",
+                "AMPComment": "Test order 2",
+                "Status": "Rejected",
+                "StatusUpdatedby": "Kostiantyn Rymar",
+                "Statuschange": "2026-01-08T19:37:00Z",
+                "IOAffComment": null,
+                "TrafficStatus": "Pending",
+                "TrafficStatusUpdatedby": "Kostiantyn Rymar",
+                "TrafficStatusChange": "2026-01-08T19:37:00Z",
+                "TrafficAffComment": null,
+                "id": "ORD-102947-d668a8a2"
+            },
+            {
+                "Advertiser": "Test Advertiser",
+                "Agency": "Tets Agency",
+                "Billingparty": "1P",
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": "122122",
+                "FlightStar": "2026-01-27",
+                "FlightEnd": "2026-01-24",
+                "StreamingvsAddressable": null,
+                "AMPComment": null,
+                "Status": "Not Uploaded",
+                "StatusUpdatedby": null,
+                "Statuschange": "2026-01-05T05:00:00Z",
+                "IOAffComment": null,
+                "TrafficStatus": "Not Uploaded",
+                "TrafficStatusUpdatedby": null,
+                "TrafficStatusChange": null,
+                "TrafficAffComment": null,
+                "id": "ORD-110866-a6881794"
+            },
+            {
+                "Advertiser": "test Advertiser",
+                "Agency": "Test Agency ",
+                "Billingparty": "1P",
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": "121212",
+                "FlightStar": "2026-01-13",
+                "FlightEnd": "2026-01-30",
+                "StreamingvsAddressable": "Streaming",
+                "AMPComment": null,
+                "Status": "Not Uploaded",
+                "StatusUpdatedby": null,
+                "Statuschange": null,
+                "IOAffComment": null,
+                "TrafficStatus": "Not Uploaded",
+                "TrafficStatusUpdatedby": null,
+                "TrafficStatusChange": null,
+                "TrafficAffComment": null,
+                "id": "ORD-134623-70a0b475"
+            },
+            {
+                "Advertiser": null,
+                "Agency": "test",
+                "Billingparty": null,
+                "Order Type": null,
+                "Budget": "Political",
+                "OPID": null,
+                "FlightStar": null,
+                "FlightEnd": null,
+                "StreamingvsAddressable": null,
+                "AMPComment": null,
+                "Status": "Not Uploaded",
+                "StatusUpdatedby": null,
+                "Statuschange": null,
+                "IOAffComment": null,
+                "TrafficStatus": "Not Uploaded",
+                "TrafficStatusUpdatedby": null,
+                "TrafficStatusChange": null,
+                "TrafficAffComment": null,
+                "id": "ORD-182137-47287699"
+            }
+        ];
+
+        // Column definitions
+        let columns = [
+            { key: 'Advertiser', label: 'Advertiser', width: 150, filterType: 'text' },
+            { key: 'Agency', label: 'Agency', width: 150, filterType: 'text' },
+            { key: 'Billingparty', label: 'Billing Party', width: 120, filterType: 'text' },
+            { key: 'Order Type', label: 'Order Type', width: 120, filterType: 'text' },
+            { key: 'Budget', label: 'Budget', width: 100, filterType: 'text' },
+            { key: 'OPID', label: 'OPID', width: 100, filterType: 'text' },
+            { key: 'FlightStar', label: 'Flight Start', width: 110, filterType: 'text' },
+            { key: 'FlightEnd', label: 'Flight End', width: 110, filterType: 'text' },
+            { key: 'StreamingvsAddressable', label: 'Streaming/Addressable', width: 180, filterType: 'text' },
+            { key: 'AMPComment', label: 'AMP Comment', width: 150, filterType: 'text' },
+            { key: 'Status', label: 'IO Status', width: 120, filterType: 'select' },
+            { key: 'IOAffComment', label: 'IO Aff Comment', width: 150, filterType: 'text' },
+            { key: 'TrafficStatus', label: 'Traffic Status', width: 130, filterType: 'select' },
+            { key: 'TrafficAffComment', label: 'Traffic Aff Comment', width: 180, filterType: 'text' }
+        ];
+
+        let currentUser = null;
+        let filteredData = [...ordersData];
+        let sortColumn = null;
+        let sortDirection = 'asc';
+        let selectedOrderId = null;
+        let columnFilters = {};
+        let activeFilterColumn = null;
+
+        // Check authentication
+        function checkAuthentication() {
+            const savedUser = localStorage.getItem('selectedUser');
+            
+            if (savedUser) {
+                try {
+                    currentUser = JSON.parse(savedUser);
+                    showMainContent();
+                } catch (e) {
+                    showAuthModal();
+                }
+            } else {
+                showAuthModal();
+            }
+        }
+
+        // Show auth modal
+        function showAuthModal() {
+            const authOverlay = document.getElementById('authOverlay');
+            const userSelect = document.getElementById('userSelect');
+            
+            usersData.forEach(function(user) {
+                const option = document.createElement('option');
+                option.value = JSON.stringify(user);
+                option.textContent = user.name + ' (' + user.email + ')';
+                userSelect.appendChild(option);
+            });
+            
+            authOverlay.classList.add('show');
+        }
+
+        // Auth submit handler
+        document.getElementById('userSelect').addEventListener('change', function() {
+            const submitBtn = document.getElementById('authSubmit');
+            submitBtn.disabled = !this.value;
+        });
+
+        document.getElementById('authSubmit').addEventListener('click', function() {
+            const userSelect = document.getElementById('userSelect');
+            const rememberMe = document.getElementById('rememberMe').checked;
+            
+            if (userSelect.value) {
+                currentUser = JSON.parse(userSelect.value);
+                
+                if (rememberMe) {
+                    localStorage.setItem('selectedUser', JSON.stringify(currentUser));
+                }
+                
+                document.getElementById('authOverlay').classList.remove('show');
+                showMainContent();
+            }
+        });
+
+        // Show main content
+        function showMainContent() {
+            document.getElementById('userIcon').textContent = currentUser.initials;
+            document.getElementById('currentUserName').textContent = currentUser.name;
+            document.getElementById('userSelector').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'block';
+            
+            populateUserDropdown();
+            renderTableHeaders();
+            renderTable();
+            initializeFilters();
+            initializeDragAndDrop();
+            initializeColumnResize();
+            initializeStatusTooltips();
+        }
+
+        // Populate user dropdown
+        function populateUserDropdown() {
+            const dropdownMenu = document.getElementById('userDropdownMenu');
+            dropdownMenu.innerHTML = '';
+            
+            usersData.forEach(function(user) {
+                const item = document.createElement('div');
+                item.className = 'user-dropdown-item';
+                if (user.email === currentUser.email) {
+                    item.classList.add('active');
+                }
+                item.innerHTML = '<div style="font-weight: 600;">' + user.name + '</div>' +
+                    '<div style="font-size: 12px; color: #605e5c;">' + user.email + '</div>';
+                item.onclick = function() {
+                    switchUser(user);
+                };
+                dropdownMenu.appendChild(item);
+            });
+        }
+
+        // Toggle dropdown
+        function toggleUserDropdown() {
+            const dropdown = document.getElementById('userDropdownMenu');
+            dropdown.classList.toggle('show');
+        }
+
+        // Close dropdown on outside click
+        document.addEventListener('click', function(event) {
+            const userSelector = document.getElementById('userSelector');
+            const dropdown = document.getElementById('userDropdownMenu');
+            
+            if (!userSelector.contains(event.target)) {
+                dropdown.classList.remove('show');
+            }
+
+            // Close filter dropdowns
+            if (!event.target.closest('.filter-icon') && !event.target.closest('.column-filter-dropdown')) {
+                closeAllFilterDropdowns();
+            }
+        });
+
+        // Switch user
+        function switchUser(user) {
+            currentUser = user;
+            localStorage.setItem('selectedUser', JSON.stringify(currentUser));
+            
+            document.getElementById('userIcon').textContent = user.initials;
+            document.getElementById('currentUserName').textContent = user.name;
+            
+            populateUserDropdown();
+            document.getElementById('userDropdownMenu').classList.remove('show');
+        }
+
+        // Render table headers
+        function renderTableHeaders() {
+            const headerRow = document.getElementById('headerRow');
+            headerRow.innerHTML = '';
+
+            columns.forEach(function(col, index) {
+                const th = document.createElement('th');
+                th.setAttribute('data-column', col.key);
+                th.style.width = col.width + 'px';
+                th.draggable = true;
+
+                const content = document.createElement('div');
+                content.className = 'th-content';
+
+                const label = document.createElement('span');
+                label.className = 'th-label';
+                label.textContent = col.label;
+                label.onclick = function() { sortTable(col.key); };
+
+                const sortIndicator = document.createElement('span');
+                sortIndicator.className = 'sort-indicator';
+
+                const filterIcon = document.createElement('span');
+                filterIcon.className = 'filter-icon';
+                filterIcon.innerHTML = '&#9776;'; // Filter icon (hamburger menu)
+                filterIcon.onclick = function(e) {
+                    e.stopPropagation();
+                    toggleFilterDropdown(col.key, th);
+                };
+
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+
+                content.appendChild(label);
+                content.appendChild(sortIndicator);
+                content.appendChild(filterIcon);
+
+                th.appendChild(content);
+                th.appendChild(resizeHandle);
+
+                // Create filter dropdown
+                const filterDropdown = document.createElement('div');
+                filterDropdown.className = 'column-filter-dropdown';
+                filterDropdown.setAttribute('data-column', col.key);
+
+                if (col.filterType === 'select') {
+                    const select = document.createElement('select');
+                    select.innerHTML = '<option value="">All</option>' +
+                        '<option value="Confirmed">Confirmed</option>' +
+                        '<option value="Pending">Pending</option>' +
+                        '<option value="Rejected">Rejected</option>' +
+                        '<option value="Not Uploaded">Not Uploaded</option>';
+                    select.onchange = function(e) {
+                        e.stopPropagation();
+                        columnFilters[col.key] = this.value;
+                        applyFilters();
+                        updateFilterIcon(col.key);
+                    };
+                    filterDropdown.appendChild(select);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.placeholder = 'Filter ' + col.label + '...';
+                    input.oninput = function(e) {
+                        e.stopPropagation();
+                        columnFilters[col.key] = this.value;
+                        applyFilters();
+                        updateFilterIcon(col.key);
+                    };
+                    input.onclick = function(e) {
+                        e.stopPropagation();
+                    };
+                    filterDropdown.appendChild(input);
+                }
+
+                filterDropdown.onclick = function(e) {
+                    e.stopPropagation();
+                };
+
+                th.appendChild(filterDropdown);
+                headerRow.appendChild(th);
+            });
+        }
+
+        // Toggle filter dropdown
+        function toggleFilterDropdown(columnKey, thElement) {
+            const dropdown = thElement.querySelector('.column-filter-dropdown');
+            const isCurrentlyOpen = dropdown.classList.contains('show');
+
+            closeAllFilterDropdowns();
+
+            if (!isCurrentlyOpen) {
+                dropdown.classList.add('show');
+                activeFilterColumn = columnKey;
+                
+                // Focus input/select
+                const input = dropdown.querySelector('input, select');
+                if (input) {
+                    setTimeout(function() {
+                        input.focus();
+                    }, 100);
+                }
+            } else {
+                activeFilterColumn = null;
+            }
+        }
+
+        // Close all filter dropdowns
+        function closeAllFilterDropdowns() {
+            document.querySelectorAll('.column-filter-dropdown').forEach(function(dropdown) {
+                dropdown.classList.remove('show');
+            });
+            activeFilterColumn = null;
+        }
+
+        // Update filter icon
+        function updateFilterIcon(columnKey) {
+            const th = document.querySelector('th[data-column="' + columnKey + '"]');
+            if (!th) return;
+            
+            const filterIcon = th.querySelector('.filter-icon');
+            
+            if (columnFilters[columnKey] && columnFilters[columnKey] !== '') {
+                filterIcon.classList.add('active');
+            } else {
+                filterIcon.classList.remove('active');
+            }
+        }
+
+        // Initialize drag and drop for column reordering
+        function initializeDragAndDrop() {
+            const headerRow = document.getElementById('headerRow');
+            let draggedIndex = -1;
+
+            headerRow.addEventListener('dragstart', function(e) {
+                if (e.target.tagName === 'TH') {
+                    draggedIndex = Array.from(headerRow.children).indexOf(e.target);
+                    e.target.classList.add('dragging');
+                }
+            });
+
+            headerRow.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(headerRow, e.clientX);
+                const dragging = document.querySelector('.dragging');
+                if (dragging) {
+                    if (afterElement == null) {
+                        headerRow.appendChild(dragging);
+                    } else {
+                        headerRow.insertBefore(dragging, afterElement);
+                    }
+                }
+            });
+
+            headerRow.addEventListener('dragend', function(e) {
+                if (e.target.tagName === 'TH') {
+                    e.target.classList.remove('dragging');
+                    const newIndex = Array.from(headerRow.children).indexOf(e.target);
+                    
+                    // Reorder columns array
+                    const movedColumn = columns.splice(draggedIndex, 1)[0];
+                    columns.splice(newIndex, 0, movedColumn);
+                    
+                    renderTable();
+                }
+            });
+        }
+
+        function getDragAfterElement(container, x) {
+            const draggableElements = [...container.querySelectorAll('th:not(.dragging)')];
+
+            return draggableElements.reduce(function(closest, child) {
+                const box = child.getBoundingClientRect();
+                const offset = x - box.left - box.width / 2;
+
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // Initialize column resize
+        function initializeColumnResize() {
+            let isResizing = false;
+            let currentTh = null;
+            let startX = 0;
+            let startWidth = 0;
+
+            document.addEventListener('mousedown', function(e) {
+                if (e.target.classList.contains('resize-handle')) {
+                    isResizing = true;
+                    currentTh = e.target.parentElement;
+                    startX = e.pageX;
+                    startWidth = currentTh.offsetWidth;
+                    e.preventDefault();
+                }
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (isResizing) {
+                    const diff = e.pageX - startX;
+                    const newWidth = Math.max(50, startWidth + diff);
+                    currentTh.style.width = newWidth + 'px';
+                    
+                    // Update column width in array
+                    const columnKey = currentTh.getAttribute('data-column');
+                    const col = columns.find(c => c.key === columnKey);
+                    if (col) {
+                        col.width = newWidth;
+                    }
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                isResizing = false;
+                currentTh = null;
+            });
+        }
+
+        // Initialize status tooltips
+        function initializeStatusTooltips() {
+            const tooltip = document.getElementById('statusTooltip');
+            
+            document.addEventListener('mouseover', function(e) {
+                if (e.target.classList.contains('status-badge')) {
+                    const updatedBy = e.target.getAttribute('data-updated-by');
+                    const changeDate = e.target.getAttribute('data-change-date');
+                    
+                    let tooltipHTML = 'Updated: ' + formatDateTime(changeDate);
+                    if (updatedBy && updatedBy !== 'null') {
+                        tooltipHTML += '<br>By: ' + updatedBy;
+                    }
+                    
+                    tooltip.innerHTML = tooltipHTML;
+                    tooltip.classList.add('show');
+                    
+                    // Position tooltip
+                    const rect = e.target.getBoundingClientRect();
+                    tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
+                    tooltip.style.top = (rect.top - tooltip.offsetHeight - 10) + 'px';
+                }
+            });
+            
+            document.addEventListener('mouseout', function(e) {
+                if (e.target.classList.contains('status-badge')) {
+                    tooltip.classList.remove('show');
+                }
+            });
+        }
+
+        // Extract Order Type value
+        function getOrderTypeValue(orderType) {
+            if (!orderType) return null;
+            if (typeof orderType === 'object' && orderType.Value) {
+                return orderType.Value;
+            }
+            return orderType;
+        }
+
+        // Format value for display
+        function formatValue(value) {
+            if (value === null || value === undefined || value === '') {
+                return '<span class="null-value">null</span>';
+            }
+            return value;
+        }
+
+        // Format date in short format (m/d)
+        function formatDateShort(dateString) {
+            if (!dateString) return '<span class="null-value">null</span>';
+            const date = new Date(dateString);
+            return (date.getMonth() + 1) + '/' + date.getDate();
+        }
+
+        // Format date time for tooltip
+        function formatDateTime(dateString) {
+            if (!dateString || dateString === 'null') return 'Never updated';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) + ' ' +
+                   date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        }
+
+        // Get status badge HTML with tooltip data
+        function getStatusBadge(status, updatedBy, changeDate) {
+            if (!status) return '<span class="null-value">null</span>';
+            
+            let className = 'status-badge ';
+            if (status === 'Confirmed') className += 'status-confirmed';
+            else if (status === 'Pending') className += 'status-pending';
+            else if (status === 'Rejected') className += 'status-rejected';
+            else if (status === 'Not Uploaded') className += 'status-not-uploaded';
+            
+            return '<span class="' + className + '" data-updated-by="' + (updatedBy || '') + '" data-change-date="' + (changeDate || '') + '">' + status + '</span>';
+        }
+
+        // Render table
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+            
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="' + columns.length + '"><div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">No orders found</div></div></td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = filteredData.map(function(order) {
+                let row = '<tr data-order-id="' + (order.id || '') + '" oncontextmenu="showContextMenu(event, \'' + (order.id || '') + '\')">';
+                
+                columns.forEach(function(col) {
+                    let cellContent = '';
+                    
+                    if (col.key === 'Order Type') {
+                        cellContent = formatValue(getOrderTypeValue(order[col.key]));
+                    } else if (col.key === 'FlightStar' || col.key === 'FlightEnd') {
+                        cellContent = formatDateShort(order[col.key]);
+                    } else if (col.key === 'OPID') {
+                        cellContent = order[col.key] ? '<span class="opid-bold">' + order[col.key] + '</span>' : '<span class="null-value">null</span>';
+                    } else if (col.key === 'Status') {
+                        cellContent = getStatusBadge(order.Status, order.StatusUpdatedby, order.Statuschange);
+                    } else if (col.key === 'TrafficStatus') {
+                        cellContent = getStatusBadge(order.TrafficStatus, order.TrafficStatusUpdatedby, order.TrafficStatusChange);
+                    } else {
+                        cellContent = formatValue(order[col.key]);
+                    }
+                    
+                    row += '<td>' + cellContent + '</td>';
+                });
+                
+                row += '</tr>';
+                return row;
+            }).join('');
+        }
+
+        // Initialize filters
+        function initializeFilters() {
+            // Global search
+            document.getElementById('globalSearch').addEventListener('input', function(e) {
+                applyFilters();
+            });
+        }
+
+        // Apply all filters
+        function applyFilters() {
+            const globalSearch = document.getElementById('globalSearch').value.toLowerCase();
+
+            filteredData = ordersData.filter(function(order) {
+                // Global search
+                if (globalSearch) {
+                    const orderType = getOrderTypeValue(order["Order Type"]);
+                    const searchableText = [
+                        order.Advertiser,
+                        order.Agency,
+                        order.Billingparty,
+                        orderType,
+                        order.Budget,
+                        order.OPID,
+                        order.StreamingvsAddressable,
+                        order.AMPComment,
+                        order.Status,
+                        order.IOAffComment,
+                        order.TrafficStatus,
+                        order.TrafficAffComment
+                    ].filter(function(v) { return v; }).join(' ').toLowerCase();
+
+                    if (!searchableText.includes(globalSearch)) {
+                        return false;
+                    }
+                }
+
+                // Column filters
+                for (let columnKey in columnFilters) {
+                    const filterValue = columnFilters[columnKey];
+                    if (!filterValue || filterValue === '') continue;
+
+                    let cellValue = '';
+
+                    if (columnKey === 'Order Type') {
+                        cellValue = (getOrderTypeValue(order["Order Type"]) || '').toString().toLowerCase();
+                    } else {
+                        cellValue = (order[columnKey] || '').toString().toLowerCase();
+                    }
+
+                    if (!cellValue.includes(filterValue.toLowerCase())) {
+                        return false;
+                    }
+                }
+
+                return true;
+            });
+
+            renderTable();
+        }
+
+        // Sort table
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+
+            filteredData.sort(function(a, b) {
+                let aVal = a[column];
+                let bVal = b[column];
+
+                // Handle Order Type object
+                if (column === 'Order Type') {
+                    aVal = getOrderTypeValue(aVal);
+                    bVal = getOrderTypeValue(bVal);
+                }
+
+                // Handle null values
+                if (!aVal && !bVal) return 0;
+                if (!aVal) return sortDirection === 'asc' ? 1 : -1;
+                if (!bVal) return sortDirection === 'asc' ? -1 : 1;
+
+                // Compare
+                if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+                if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            // Update sort indicators
+            document.querySelectorAll('.sort-indicator').forEach(function(indicator) {
+                indicator.textContent = '';
+            });
+            
+            const th = document.querySelector('th[data-column="' + column + '"]');
+            if (th) {
+                const indicator = th.querySelector('.sort-indicator');
+                indicator.textContent = sortDirection === 'asc' ? '▲' : '▼';
+            }
+
+            renderTable();
+        }
+
+        // Context menu
+        function showContextMenu(event, orderId) {
+            event.preventDefault();
+            
+            if (!orderId) {
+                return;
+            }
+
+            selectedOrderId = orderId;
+            
+            const contextMenu = document.getElementById('contextMenu');
+            contextMenu.style.left = event.pageX + 'px';
+            contextMenu.style.top = event.pageY + 'px';
+            contextMenu.classList.add('show');
+        }
+
+        // Hide context menu on click
+        document.addEventListener('click', function(event) {
+            const contextMenu = document.getElementById('contextMenu');
+            if (!contextMenu.contains(event.target)) {
+                contextMenu.classList.remove('show');
+            }
+        });
+
+        // Open order details
+        function openOrderDetails() {
+            if (selectedOrderId) {
+                window.location.href = 'https://github.com/krymar18/ampdigital/?id=' + selectedOrderId;
+            }
+            document.getElementById('contextMenu').classList.remove('show');
+        }
+
+        // Initialize
+        checkAuthentication();
+    </script>
+</body>
+</html>
